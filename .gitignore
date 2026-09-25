@@ -9,3 +9,4 @@ src/GameOfLife.Api/data/*.db-shm
 src/GameOfLife.Api/data/*.db-wal
 TestResults/
 .aws-deploy/
+public/

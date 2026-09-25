@@ -1,0 +1,7 @@
+{
+  "name": "conway-game-ui",
+  "private": true,
+  "scripts": {
+    "build": "node -e \"const fs=require('fs'); fs.rmSync('public',{recursive:true,force:true}); fs.cpSync('frontend','public',{recursive:true});\""
+  }
+}
