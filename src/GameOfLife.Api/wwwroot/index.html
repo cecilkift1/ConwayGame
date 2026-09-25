@@ -1,0 +1,567 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Conway's Game of Life — Board Editor</title>
+  <style>
+    :root {
+      --bg: #0f172a;
+      --panel: #1e293b;
+      --panel-2: #273449;
+      --accent: #38bdf8;
+      --accent-2: #22c55e;
+      --alive: #38bdf8;
+      --dead: #0b1220;
+      --grid-line: #334155;
+      --text: #e2e8f0;
+      --muted: #94a3b8;
+    }
+    * { box-sizing: border-box; }
+    html, body { height: 100%; }
+    body {
+      margin: 0;
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    header {
+      padding: 20px 24px;
+      border-bottom: 1px solid var(--grid-line);
+      display: flex;
+      align-items: baseline;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+    header h1 { font-size: 20px; margin: 0; }
+    header a { color: var(--accent); font-size: 13px; text-decoration: none; }
+    header a:hover { text-decoration: underline; }
+    .layout { display: flex; gap: 24px; padding: 24px; flex: 1; min-height: 0; }
+    .controls {
+      background: var(--panel);
+      border: 1px solid var(--grid-line);
+      border-radius: 12px;
+      padding: 18px;
+      width: 300px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+    .board-wrap {
+      background: var(--panel);
+      border: 1px solid var(--grid-line);
+      border-radius: 12px;
+      padding: 18px;
+      flex: 1;
+      min-width: 320px;
+      min-height: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 14px;
+    }
+    fieldset { border: 1px solid var(--grid-line); border-radius: 10px; padding: 12px; margin: 0; }
+    legend { color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: .05em; padding: 0 6px; }
+    label { font-size: 13px; color: var(--muted); display: block; margin-bottom: 4px; }
+    .dim-row { display: flex; gap: 10px; }
+    .dim-row > div { flex: 1; }
+    input[type="number"] {
+      width: 100%;
+      background: var(--panel-2);
+      border: 1px solid var(--grid-line);
+      color: var(--text);
+      border-radius: 8px;
+      padding: 8px 10px;
+      font-size: 14px;
+    }
+    button {
+      background: var(--panel-2);
+      color: var(--text);
+      border: 1px solid var(--grid-line);
+      border-radius: 8px;
+      padding: 9px 12px;
+      font-size: 14px;
+      cursor: pointer;
+      transition: background .12s, border-color .12s;
+    }
+    button:hover:not(:disabled) { background: #33445e; border-color: var(--accent); }
+    button:disabled { opacity: .45; cursor: not-allowed; }
+    button.primary { background: var(--accent); color: #04121c; border-color: var(--accent); font-weight: 600; }
+    button.primary:hover:not(:disabled) { background: #7dd3fc; }
+    button.play { background: var(--accent-2); color: #04210f; border-color: var(--accent-2); font-weight: 600; }
+    .btn-row { display: flex; gap: 8px; flex-wrap: wrap; }
+    .btn-row button { flex: 1; }
+    .board {
+      display: grid;
+      gap: 1px;
+      background: var(--grid-line);
+      border: 1px solid var(--grid-line);
+      border-radius: 6px;
+      overflow: hidden;
+      user-select: none;
+      touch-action: none;
+    }
+    .cell {
+      min-width: 0;
+      min-height: 0;
+      background: var(--dead);
+      cursor: pointer;
+    }
+    .cell.alive { background: var(--alive); }
+    .cell:hover { outline: 1px solid var(--accent); outline-offset: -1px; }
+    .status {
+      font-size: 13px;
+      color: var(--muted);
+      min-height: 20px;
+      line-height: 1.5;
+    }
+    .status .ok { color: var(--accent-2); }
+    .status .err { color: #f87171; }
+    .badges { display: flex; gap: 8px; flex-wrap: wrap; }
+    .badge {
+      font-size: 12px; padding: 3px 9px; border-radius: 999px;
+      background: var(--panel-2); border: 1px solid var(--grid-line); color: var(--muted);
+    }
+    .badge.on { background: #14351f; border-color: var(--accent-2); color: #86efac; }
+    .hint { font-size: 12px; color: var(--muted); }
+    .gen-num { color: var(--accent); font-weight: 700; }
+
+    /* Debug console */
+    .debug {
+      margin: 0 24px 24px;
+      background: var(--panel);
+      border: 1px solid var(--grid-line);
+      border-radius: 12px;
+      overflow: hidden;
+      flex: 1;
+      min-height: 0;
+      display: flex;
+      flex-direction: column;
+    }
+    .debug-head { flex: 0 0 auto; }
+    .debug-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--grid-line);
+    }
+    .debug-head h2 { font-size: 14px; margin: 0; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; }
+    .debug-head button { padding: 5px 12px; font-size: 12px; }
+    .debug-log {
+      flex: 1;
+      min-height: 0;
+      overflow: auto;
+      padding: 12px 16px;
+      font-family: "Cascadia Code", "SF Mono", Consolas, monospace;
+      font-size: 12.5px;
+      line-height: 1.5;
+    }
+    .log-entry { padding: 8px 0; border-bottom: 1px dashed var(--grid-line); }
+    .log-entry:last-child { border-bottom: none; }
+    .log-line { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+    .method { font-weight: 700; padding: 1px 7px; border-radius: 5px; font-size: 11px; letter-spacing: .03em; }
+    .method.GET { background: #14351f; color: #86efac; }
+    .method.POST { background: #1e3a5f; color: #7dd3fc; }
+    .log-path { color: var(--text); }
+    .log-status { margin-left: auto; font-weight: 700; }
+    .log-status.ok { color: var(--accent-2); }
+    .log-status.err { color: #f87171; }
+    .log-time { color: var(--muted); font-size: 11px; }
+    .debug-log pre {
+      margin: 6px 0 0;
+      padding: 10px 12px;
+      background: var(--dead);
+      border: 1px solid var(--grid-line);
+      border-radius: 8px;
+      overflow-x: auto;
+      white-space: pre;
+    }
+    .debug-log pre.req { border-left: 3px solid var(--accent); }
+    .debug-log pre.res { border-left: 3px solid var(--accent-2); }
+    .debug-log pre.res.err { border-left-color: #f87171; }
+    .json-key { color: #7dd3fc; }
+    .json-str { color: #86efac; }
+    .json-num { color: #fca5a5; }
+    .json-bool { color: #c4b5fd; }
+    .json-null { color: var(--muted); }
+    .debug-empty { color: var(--muted); }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Conway's Game of Life</h1>
+    <span class="hint">Interactive board editor</span>
+    <a href="/swagger" target="_blank">Open Swagger API ↗</a>
+  </header>
+
+  <div class="layout">
+    <div class="controls">
+      <fieldset>
+        <legend>Dimensions (min 5 × 5)</legend>
+        <div class="dim-row">
+          <div>
+            <label for="rows">Rows</label>
+            <input id="rows" type="number" min="5" max="100" value="5" />
+          </div>
+          <div>
+            <label for="cols">Columns</label>
+            <input id="cols" type="number" min="5" max="100" value="5" />
+          </div>
+        </div>
+        <div class="btn-row" style="margin-top:10px;">
+          <button id="resize">Resize grid</button>
+        </div>
+        <p class="hint" style="margin:8px 0 0;">Click or drag cells to toggle alive (1) / dead (0).</p>
+      </fieldset>
+
+      <fieldset>
+        <legend>Edit</legend>
+        <div class="btn-row">
+          <button id="clear">Clear</button>
+          <button id="random">Random</button>
+        </div>
+      </fieldset>
+
+      <fieldset>
+        <legend>Simulate</legend>
+        <div class="btn-row">
+          <button id="upload" class="primary">Upload board</button>
+        </div>
+        <div class="btn-row" style="margin-top:8px;">
+          <button id="step" disabled>Step ▶</button>
+          <button id="play" class="play" disabled>Play</button>
+          <button id="reset" disabled>Reset</button>
+        </div>
+        <div class="btn-row" style="margin-top:8px;">
+          <button id="final" disabled>Run to final</button>
+        </div>
+        <p class="hint" style="margin:8px 0 0;">
+          Generation: <span id="gen" class="gen-num">0</span>
+        </p>
+      </fieldset>
+
+      <fieldset>
+        <legend>Settings</legend>
+        <label for="maxAttempts">Max attempts (Run to final)</label>
+        <input id="maxAttempts" type="number" min="1" max="10000" value="1000" />
+        <p class="hint" style="margin:6px 0 0;">Generations to try before giving up.</p>
+      </fieldset>
+
+      <div class="badges">
+        <span id="badge-stable" class="badge">stable</span>
+        <span id="badge-empty" class="badge">empty</span>
+      </div>
+    </div>
+
+    <div class="board-wrap">
+      <div id="board" class="board"></div>
+      <div id="status" class="status">Draw a starting pattern, then <b>Upload board</b>.</div>
+    </div>
+  </div>
+
+  <div class="debug">
+    <div class="debug-head">
+      <h2>Debug — API calls &amp; results</h2>
+      <button id="clear-log">Clear log</button>
+    </div>
+    <div id="debug-log" class="debug-log">
+      <span class="debug-empty">No API calls yet. Interact with the board to see requests and pretty-printed JSON responses here.</span>
+    </div>
+  </div>
+
+  <script>
+    const $ = (id) => document.getElementById(id);
+    const boardEl = $("board");
+    const statusEl = $("status");
+
+    let rows = 5, cols = 5;
+    let grid = [];              // boolean[rows][cols] — the editor's current display
+    let boardId = null;         // id returned from upload
+    let generation = 0;         // current generation shown
+    let playTimer = null;
+    let painting = false, paintValue = true;
+
+    function clampDim(v) { v = parseInt(v, 10); if (isNaN(v)) v = 5; return Math.max(5, Math.min(100, v)); }
+
+    function makeGrid(r, c, preserve) {
+      const g = [];
+      for (let i = 0; i < r; i++) {
+        g[i] = [];
+        for (let j = 0; j < c; j++) {
+          g[i][j] = preserve && grid[i] && grid[i][j] ? true : false;
+        }
+      }
+      return g;
+    }
+
+    function renderGrid() {
+      boardEl.style.gridTemplateColumns = `repeat(${cols}, 1fr)`;
+      boardEl.style.gridTemplateRows = `repeat(${rows}, 1fr)`;
+      boardEl.innerHTML = "";
+      for (let i = 0; i < rows; i++) {
+        for (let j = 0; j < cols; j++) {
+          const cell = document.createElement("div");
+          cell.className = "cell" + (grid[i][j] ? " alive" : "");
+          cell.dataset.r = i; cell.dataset.c = j;
+          boardEl.appendChild(cell);
+        }
+      }
+      fitBoard();
+    }
+
+    // Size the board as a centered square that fits the available space,
+    // keeping cells square regardless of row/column count.
+    function fitBoard() {
+      const wrap = boardEl.parentElement;
+      const cs = getComputedStyle(wrap);
+      const padX = parseFloat(cs.paddingLeft) + parseFloat(cs.paddingRight);
+      const padY = parseFloat(cs.paddingTop) + parseFloat(cs.paddingBottom);
+      const gap = parseFloat(cs.rowGap) || 14;
+      const availW = wrap.clientWidth - padX;
+      const availH = wrap.clientHeight - padY - statusEl.offsetHeight - gap;
+      const side = Math.max(60, Math.min(availW, availH));
+      // Match cell aspect: scale so each cell is square (side / max(rows,cols))
+      const cell = Math.floor(side / Math.max(rows, cols));
+      boardEl.style.width = (cell * cols) + "px";
+      boardEl.style.height = (cell * rows) + "px";
+    }
+    window.addEventListener("resize", fitBoard);
+
+    function paint(r, c, value) {
+      if (r < 0 || c < 0 || r >= rows || c >= cols) return;
+      grid[r][c] = value;
+      const idx = r * cols + c;
+      const cell = boardEl.children[idx];
+      if (cell) cell.classList.toggle("alive", value);
+    }
+
+    // --- mouse interaction: click to toggle, drag to paint ---
+    boardEl.addEventListener("pointerdown", (e) => {
+      const cell = e.target.closest(".cell");
+      if (!cell) return;
+      const r = +cell.dataset.r, c = +cell.dataset.c;
+      paintValue = !grid[r][c];       // toggle relative to clicked cell
+      painting = true;
+      paint(r, c, paintValue);
+      boardEl.setPointerCapture(e.pointerId);
+    });
+    boardEl.addEventListener("pointermove", (e) => {
+      if (!painting) return;
+      const cell = document.elementFromPoint(e.clientX, e.clientY);
+      if (cell && cell.classList.contains("cell")) {
+        paint(+cell.dataset.r, +cell.dataset.c, paintValue);
+      }
+    });
+    window.addEventListener("pointerup", () => { painting = false; });
+
+    function gridToRows() {
+      return grid.map(row => row.map(v => v ? "#" : ".").join(""));
+    }
+    function rowsToGrid(apiRows) {
+      rows = apiRows.length; cols = apiRows[0].length;
+      $("rows").value = rows; $("cols").value = cols;
+      grid = apiRows.map(line => line.split("").map(ch => ch === "#"));
+      renderGrid();
+    }
+
+    function setStatus(msg, kind) {
+      statusEl.innerHTML = kind ? `<span class="${kind}">${msg}</span>` : msg;
+    }
+    function setBadges(stable, empty) {
+      $("badge-stable").classList.toggle("on", !!stable);
+      $("badge-empty").classList.toggle("on", !!empty);
+    }
+    function setGen(n) { generation = n; $("gen").textContent = n; }
+
+    function simControls(enabled) {
+      $("step").disabled = !enabled;
+      $("play").disabled = !enabled;
+      $("reset").disabled = !enabled;
+      $("final").disabled = !enabled;
+    }
+
+    // Editing invalidates the uploaded board
+    function invalidateUpload() {
+      if (playTimer) stopPlay();
+      boardId = null;
+      setGen(0);
+      simControls(false);
+      setBadges(false, false);
+    }
+
+    // --- controls ---
+    $("resize").onclick = () => {
+      rows = clampDim($("rows").value); cols = clampDim($("cols").value);
+      $("rows").value = rows; $("cols").value = cols;
+      grid = makeGrid(rows, cols, true);
+      renderGrid();
+      invalidateUpload();
+    };
+    $("clear").onclick = () => { grid = makeGrid(rows, cols, false); renderGrid(); invalidateUpload(); setStatus("Cleared."); };
+    $("random").onclick = () => {
+      grid = makeGrid(rows, cols, false);
+      for (let i = 0; i < rows; i++) for (let j = 0; j < cols; j++) grid[i][j] = Math.random() < 0.3;
+      renderGrid(); invalidateUpload(); setStatus("Randomized.");
+    };
+
+    // --- debug console ---
+    const logEl = $("debug-log");
+    let logCleared = false;
+
+    function escapeHtml(s) {
+      return String(s).replace(/[&<>]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]));
+    }
+    function syntaxHighlight(obj) {
+      const json = escapeHtml(JSON.stringify(obj, null, 2));
+      return json.replace(
+        /("(\\u[a-zA-Z0-9]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(true|false)\b|\bnull\b|-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?)/g,
+        (match) => {
+          let cls = "json-num";
+          if (/^"/.test(match)) cls = /:$/.test(match) ? "json-key" : "json-str";
+          else if (/true|false/.test(match)) cls = "json-bool";
+          else if (/null/.test(match)) cls = "json-null";
+          return `<span class="${cls}">${match}</span>`;
+        }
+      );
+    }
+    function logCall(method, path, reqBody, status, resBody, isError) {
+      if (!logCleared) { logEl.innerHTML = ""; logCleared = true; }
+      const entry = document.createElement("div");
+      entry.className = "log-entry";
+      const time = new Date().toLocaleTimeString();
+      const statusCls = isError ? "err" : "ok";
+      let html = `<div class="log-line">
+        <span class="method ${method}">${method}</span>
+        <span class="log-path">${escapeHtml(path)}</span>
+        <span class="log-status ${statusCls}">${status}</span>
+      </div>
+      <div class="log-time">${time}</div>`;
+      if (reqBody !== undefined && reqBody !== null) {
+        html += `<pre class="req">${syntaxHighlight(reqBody)}</pre>`;
+      }
+      if (resBody !== undefined && resBody !== null) {
+        html += `<pre class="res ${isError ? "err" : ""}">${syntaxHighlight(resBody)}</pre>`;
+      }
+      entry.innerHTML = html;
+      logEl.prepend(entry);
+    }
+    $("clear-log").onclick = () => {
+      logEl.innerHTML = '<span class="debug-empty">Log cleared.</span>';
+      logCleared = false;
+    };
+
+    async function api(path, opts) {
+      const method = (opts && opts.method) || "GET";
+      let reqBody = null;
+      if (opts && opts.body) { try { reqBody = JSON.parse(opts.body); } catch { reqBody = opts.body; } }
+      let res, body = null;
+      try {
+        res = await fetch(path, opts);
+      } catch (netErr) {
+        logCall(method, path, reqBody, "network error", { error: netErr.message }, true);
+        throw netErr;
+      }
+      try { body = await res.json(); } catch {}
+      logCall(method, path, reqBody, res.status, body, !res.ok);
+      if (!res.ok) {
+        const msg = body && body.error ? body.error : `HTTP ${res.status}`;
+        throw new Error(msg);
+      }
+      return body;
+    }
+
+    $("upload").onclick = async () => {
+      try {
+        setStatus("Uploading…");
+        const data = await api("/api/boards", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ rows: gridToRows() })
+        });
+        boardId = data.id;
+        setGen(0);
+        simControls(true);
+        setBadges(false, false);
+        setStatus(`Uploaded ✓ id <code>${boardId}</code>. Use Step / Play / Run to final.`, "ok");
+      } catch (e) {
+        invalidateUpload();
+        setStatus("Upload failed: " + e.message, "err");
+      }
+    };
+
+    async function showGeneration(n) {
+      const data = await api(`/api/boards/${boardId}/states/${n}`);
+      rowsToGrid(data.rows);
+      setGen(n);
+      setBadges(data.isStable, data.isEmpty);
+      return data;
+    }
+
+    $("step").onclick = async () => {
+      if (!boardId) return;
+      try { await showGeneration(generation + 1); setStatus(`Generation ${generation}.`); }
+      catch (e) { setStatus("Step failed: " + e.message, "err"); }
+    };
+
+    function stopPlay() {
+      clearInterval(playTimer); playTimer = null;
+      $("play").textContent = "Play"; $("play").classList.add("play");
+    }
+    $("play").onclick = () => {
+      if (!boardId) return;
+      if (playTimer) { stopPlay(); return; }
+      $("play").textContent = "Pause"; $("play").classList.remove("play");
+      playTimer = setInterval(async () => {
+        try { await showGeneration(generation + 1); }
+        catch (e) { stopPlay(); setStatus("Play stopped: " + e.message, "err"); }
+      }, 300);
+    };
+
+    $("reset").onclick = async () => {
+      if (!boardId) return;
+      if (playTimer) stopPlay();
+      try { await showGeneration(0); setStatus("Reset to generation 0."); }
+      catch (e) { setStatus("Reset failed: " + e.message, "err"); }
+    };
+
+    $("final").onclick = async () => {
+      if (!boardId) return;
+      if (playTimer) stopPlay();
+      try {
+        setStatus("Running to final state…");
+        let maxAttempts = parseInt($("maxAttempts").value, 10);
+        if (isNaN(maxAttempts) || maxAttempts < 1) maxAttempts = 1000;
+        maxAttempts = Math.min(maxAttempts, 10000);
+        $("maxAttempts").value = maxAttempts;
+        const data = await api(`/api/boards/${boardId}/final?maxAttempts=${maxAttempts}`);
+        rowsToGrid(data.rows);
+        setGen(data.attempts);
+        setBadges(data.isStable, data.isEmpty);
+        const kind = data.isEmpty ? "died out (empty)" : "reached a stable state";
+        setStatus(`Final state ${kind} after ${data.attempts} generation(s).`, "ok");
+      } catch (e) {
+        setStatus(e.message, "err");  // e.g. cycle detected / attempt limit
+      }
+    };
+
+    // Recreating via inputs (Enter) also resizes
+    ["rows", "cols"].forEach(id => $(id).addEventListener("change", () => $("resize").click()));
+
+    // init — default to a vertical blinker
+    const defaultCells = [
+      [false, false, false, false, false],
+      [false, false, true,  false, false],
+      [false, false, true,  false, false],
+      [false, false, true,  false, false],
+      [false, false, false, false, false]
+    ];
+    grid = defaultCells.map(row => row.slice());
+    renderGrid();
+  </script>
+</body>
+</html>

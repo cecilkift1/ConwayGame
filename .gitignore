@@ -1,0 +1,10 @@
+bin/
+obj/
+.vs/
+.idea/
+*.user
+*.suo
+src/GameOfLife.Api/data/*.db
+src/GameOfLife.Api/data/*.db-shm
+src/GameOfLife.Api/data/*.db-wal
+TestResults/
