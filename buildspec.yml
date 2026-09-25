@@ -1,0 +1,28 @@
+version: 0.2
+
+# AWS CodeBuild spec: builds the app container from the Dockerfile and
+# pushes it to Amazon ECR. Used to deploy to AWS App Runner without a
+# local Docker installation.
+#
+# Expected environment variables (set on the CodeBuild project):
+#   AWS_DEFAULT_REGION - e.g. us-east-1
+#   AWS_ACCOUNT_ID     - the 12-digit account id
+#   IMAGE_REPO_NAME    - the ECR repository name (e.g. conwaygame)
+#   IMAGE_TAG          - the image tag (e.g. latest)
+
+phases:
+  pre_build:
+    commands:
+      - echo Logging in to Amazon ECR...
+      - REPO_URI=$AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/$IMAGE_REPO_NAME
+      - aws ecr get-login-password --region $AWS_DEFAULT_REGION | docker login --username AWS --password-stdin $AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com
+  build:
+    commands:
+      - echo Building the Docker image...
+      - docker build -t $IMAGE_REPO_NAME:$IMAGE_TAG .
+      - docker tag $IMAGE_REPO_NAME:$IMAGE_TAG $REPO_URI:$IMAGE_TAG
+  post_build:
+    commands:
+      - echo Pushing the Docker image to ECR...
+      - docker push $REPO_URI:$IMAGE_TAG
+      - echo Done. Image pushed to $REPO_URI:$IMAGE_TAG
