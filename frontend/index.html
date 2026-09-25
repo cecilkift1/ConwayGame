@@ -25,12 +25,12 @@
       background: var(--bg);
       color: var(--text);
       height: 100vh;
-      display: flex;
-      flex-direction: column;
+      display: grid;
+      grid-template-rows: auto minmax(0, 1fr) minmax(160px, 36vh);
       overflow: hidden;
     }
     header {
-      padding: 20px 24px;
+      padding: 14px 24px;
       border-bottom: 1px solid var(--grid-line);
       display: flex;
       align-items: baseline;
@@ -40,16 +40,19 @@
     header h1 { font-size: 20px; margin: 0; }
     header a { color: var(--accent); font-size: 13px; text-decoration: none; }
     header a:hover { text-decoration: underline; }
-    .layout { display: flex; gap: 24px; padding: 24px; flex: 1; min-height: 0; }
+    .layout { display: flex; gap: 24px; padding: 16px 24px; min-height: 0; overflow: hidden; }
     .controls {
       background: var(--panel);
       border: 1px solid var(--grid-line);
       border-radius: 12px;
-      padding: 18px;
+      padding: 14px;
       width: 300px;
+      min-height: 0;
+      overflow-y: auto;
       display: flex;
       flex-direction: column;
-      gap: 14px;
+      gap: 12px;
+      flex: 0 0 300px;
     }
     .board-wrap {
       background: var(--panel);
@@ -134,12 +137,11 @@
 
     /* Debug console */
     .debug {
-      margin: 0 24px 24px;
+      margin: 0 24px 16px;
       background: var(--panel);
       border: 1px solid var(--grid-line);
       border-radius: 12px;
       overflow: hidden;
-      flex: 1;
       min-height: 0;
       display: flex;
       flex-direction: column;
