@@ -29,7 +29,8 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
-app.UseHttpsRedirection();
+// HTTP-only local/dev serving: HTTPS redirect breaks when no HTTPS
+// port is configured and can blank the page behind port forwards.
 app.UseDefaultFiles();
 app.UseStaticFiles();
 app.MapControllers();
