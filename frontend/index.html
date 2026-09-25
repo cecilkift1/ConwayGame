@@ -483,8 +483,13 @@
       try {
         res = await fetch(apiUrl(path), opts);
       } catch (netErr) {
-        logCall(method, apiUrl(path), reqBody, "network error", { error: netErr.message }, true);
-        throw netErr;
+        const target = apiUrl(path);
+        const hint = target.startsWith("http://") && location.protocol === "https:"
+          ? " The page is HTTPS and the API is HTTP — start the API on this computer at that URL, or deploy the API to AWS with HTTPS."
+          : " Is the API running at the URL in Settings?";
+        const message = "Failed to reach " + target + "." + hint;
+        logCall(method, target, reqBody, "network error", { error: message }, true);
+        throw new Error(message);
       }
       try { body = await res.json(); } catch {}
       logCall(method, apiUrl(path), reqBody, res.status, body, !res.ok);
