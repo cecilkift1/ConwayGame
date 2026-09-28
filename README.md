@@ -153,7 +153,7 @@ These stay disabled until a board is uploaded. After the board becomes empty or 
 
 | Control | What it does |
 | --- | --- |
-| **API base URL** | Host for API calls. Leave empty when the UI is served by this app. On Vercel, point it at the AWS (or local) API. |
+| **API base URL** | Host for API calls. Leave empty when the UI is served by this app. On Vercel, use `https://localhost:5001` while the API is running locally (trust the ASP.NET HTTPS certificate with `dotnet dev-certs https --trust`), or your AWS HTTPS API. HTTP `localhost` is blocked by the browser because Vercel is HTTPS. |
 | **Max attempts** | Generation cap for **Run to final** (1–10,000). |
 
 **stable** and **empty** light up when the current generation is a still life or has no live cells. The debug panel at the bottom logs each HTTP request and the JSON response. **Clear log** empties that panel.

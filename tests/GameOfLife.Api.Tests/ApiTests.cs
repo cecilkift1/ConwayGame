@@ -78,6 +78,23 @@ public sealed class ApiTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task Vercel_origin_is_allowed_for_cors_preflight()
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Options, "/api/boards");
+        request.Headers.TryAddWithoutValidation("Origin", "https://conway-game-git-wrappingup-cecilkift1.vercel.app");
+        request.Headers.TryAddWithoutValidation("Access-Control-Request-Method", "POST");
+        request.Headers.TryAddWithoutValidation("Access-Control-Request-Headers", "content-type");
+        request.Headers.TryAddWithoutValidation("Access-Control-Request-Private-Network", "true");
+
+        var response = await _client.SendAsync(request);
+
+        Assert.Equal(
+            "https://conway-game-git-wrappingup-cecilkift1.vercel.app",
+            Assert.Single(response.Headers.GetValues("Access-Control-Allow-Origin")));
+        Assert.Equal("true", Assert.Single(response.Headers.GetValues("Access-Control-Allow-Private-Network")));
+    }
+
+    [Fact]
     public async Task Final_state_returns_stable_state()
     {
         var create = await _client.PostAsJsonAsync("/api/boards", new CreateBoardRequest(["#"]));

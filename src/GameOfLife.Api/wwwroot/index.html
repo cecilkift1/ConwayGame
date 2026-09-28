@@ -258,8 +258,8 @@
       <fieldset>
         <legend>Settings</legend>
         <label for="apiBase">API base URL</label>
-        <input id="apiBase" type="url" placeholder="http://localhost:5000" />
-        <p class="hint" style="margin:6px 0 10px;">Leave empty when the UI is served by the API. On Vercel, point this at your AWS API (or local <code>http://localhost:5000</code>).</p>
+        <input id="apiBase" type="url" placeholder="https://localhost:5001" />
+        <p class="hint" style="margin:6px 0 10px;">Leave empty when the UI is served by the API. On Vercel, use <code>https://localhost:5001</code> (trust the ASP.NET HTTPS dev certificate) or your AWS HTTPS API.</p>
         <label for="maxAttempts">Max attempts (Run to final)</label>
         <input id="maxAttempts" type="number" min="1" max="10000" value="1000" />
         <p class="hint" style="margin:6px 0 0;">Generations to try before giving up.</p>
@@ -652,9 +652,11 @@
     });
 
     const savedBase = localStorage.getItem(API_BASE_KEY);
-    const defaultBase = savedBase !== null
-      ? savedBase
-      : (location.hostname.endsWith("vercel.app") ? "http://localhost:5000" : "");
+    const onVercel = location.hostname.endsWith("vercel.app");
+    const staleLocalHttp = savedBase === "http://localhost:5000" || savedBase === "http://127.0.0.1:5000";
+    const defaultBase = onVercel
+      ? (savedBase && !staleLocalHttp ? savedBase : "https://localhost:5001")
+      : (savedBase !== null ? savedBase : "");
     applyApiBase(defaultBase);
 
     // init — default to a vertical blinker
