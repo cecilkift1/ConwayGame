@@ -115,7 +115,50 @@ dotnet test
 DOTNET_ENVIRONMENT=Development dotnet run --project src/GameOfLife.Api
 ```
 
-Swagger is available in Development at `/swagger`.
+The board editor is at http://localhost:5000/. Visual Studio’s `http` profile opens `start.html`, which shows the editor beside Swagger.
+
+## Web UI
+
+![Board editor with a blinker uploaded and simulate controls enabled](docs/webui.png)
+
+The default pattern is a vertical blinker. Click or drag cells to toggle live (blue) and dead. Then **Upload board** so the API can simulate it.
+
+### Dimensions
+
+| Control | What it does |
+| --- | --- |
+| **Rows** / **Columns** | Grid size. Minimum is 5 × 5, maximum is 100 × 100. |
+| **Resize grid** | Applies the new size. Existing live cells are kept where they still fit. You must upload again after resizing. |
+
+### Edit
+
+| Control | What it does |
+| --- | --- |
+| **Clear** | Sets every cell to dead. Invalidates the last upload. |
+| **Random** | Fills about 30% of cells at random. Invalidates the last upload. |
+
+### Simulate
+
+These stay disabled until a board is uploaded. After the board becomes empty or stable, **Step**, **Play**, and **Run to final** grey out until you upload a new board or **Reset**. A blinker cycles, so it never reaches a final state.
+
+| Control | What it does |
+| --- | --- |
+| **Upload board** | `POST /api/boards` with the current grid. Returns an id and enables the other simulate controls. |
+| **Step ▶** | Advances one generation (`GET /api/boards/{id}/states/{n}`). |
+| **Play** / **Pause** | Steps automatically every 300 ms. Pause stops the timer. |
+| **Reset** | Returns to generation 0 of the uploaded board. |
+| **Run to final** | Calls `GET /api/boards/{id}/final` until the board is stable or empty. Cycles and attempt limits return an error. |
+
+### Settings
+
+| Control | What it does |
+| --- | --- |
+| **API base URL** | Host for API calls. Leave empty when the UI is served by this app. On Vercel, point it at the AWS (or local) API. |
+| **Max attempts** | Generation cap for **Run to final** (1–10,000). |
+
+**stable** and **empty** light up when the current generation is a still life or has no live cells. The debug panel at the bottom logs each HTTP request and the JSON response. **Clear log** empties that panel.
+
+Swagger is also at `/swagger`.
 
 ## Docker
 
