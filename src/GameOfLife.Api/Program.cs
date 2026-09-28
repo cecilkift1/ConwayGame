@@ -66,12 +66,22 @@ public class Program
             app.UseSwagger();
             app.UseSwaggerUI();
 
-            if (!string.IsNullOrEmpty(app.Configuration["ASPNETCORE_HTTPS_PORTS"])
-                || !string.IsNullOrEmpty(app.Configuration["HTTPS_PORT"]))
+            app.Use(async (context, next) =>
             {
-                app.UseHttpsRedirection();
-            }
+                context.Response.OnStarting(() =>
+                {
+                    var request = context.Request;
+                    if (request.Headers.ContainsKey("Access-Control-Request-Private-Network")
+                        || request.Headers.ContainsKey("Access-Control-Request-Local-Network"))
+                    {
+                        context.Response.Headers["Access-Control-Allow-Private-Network"] = "true";
+                        context.Response.Headers["Access-Control-Allow-Local-Network"] = "true";
+                    }
 
+                    return Task.CompletedTask;
+                });
+                await next();
+            });
             app.UseCors();
             app.UseDefaultFiles();
             app.UseStaticFiles(new StaticFileOptions
@@ -118,6 +128,15 @@ public class Program
         });
 
         var extraOrigins = builder.Configuration.GetSection("Cors:Origins").Get<string[]>() ?? [];
+        builder.Services.AddCors(options =>
+        {
+            options.AddDefaultPolicy(policy =>
+            {
+                policy.SetIsOriginAllowed(origin => IsAllowedCorsOrigin(origin, extraOrigins))
+                    .AllowAnyHeader()
+                    .AllowAnyMethod();
+            });
+        });
 
         var gameName = builder.Configuration[nameof(GameName)];
         if (string.IsNullOrWhiteSpace(gameName))
@@ -137,5 +156,20 @@ public class Program
         builder.Services.AddScoped<IGameOfLifeService, GameOfLifeService>();
 
         return new ApplicationBuilderResult(true, builder);
+    }
+
+    internal static bool IsAllowedCorsOrigin(string? origin, IReadOnlyCollection<string> extraOrigins)
+    {
+        if (string.IsNullOrWhiteSpace(origin) || !Uri.TryCreate(origin, UriKind.Absolute, out var uri))
+            return false;
+
+        if (uri.Host is "localhost" or "127.0.0.1" or "[::1]")
+            return true;
+
+        if (uri.Host.EndsWith(".vercel.app", StringComparison.OrdinalIgnoreCase)
+            || uri.Host.Equals("vercel.app", StringComparison.OrdinalIgnoreCase))
+            return true;
+
+        return extraOrigins.Contains(origin, StringComparer.OrdinalIgnoreCase);
     }
 }
