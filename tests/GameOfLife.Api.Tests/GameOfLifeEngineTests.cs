@@ -1,4 +1,5 @@
 using GameOfLife.Api.Services;
+using Xunit;
 
 namespace GameOfLife.Api.Tests;
 

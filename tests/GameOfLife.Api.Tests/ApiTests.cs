@@ -34,7 +34,7 @@ public sealed class ApiTests : IAsyncLifetime
     public async Task DisposeAsync()
     {
         _client.Dispose();
-        _factory.Dispose();
+        await _factory.DisposeAsync();
         try { File.Delete(_databasePath); } catch { }
         await Task.CompletedTask;
     }
@@ -121,9 +121,9 @@ public sealed class ApiTests : IAsyncLifetime
             "..."]));
         var created = await create.Content.ReadFromJsonAsync<IdResponse>();
         _client.Dispose();
-        _factory.Dispose();
+        await _factory.DisposeAsync();
 
-        using var restarted = new WebApplicationFactory<Program>().WithWebHostBuilder(builder =>
+        await using var restarted = new WebApplicationFactory<Program>().WithWebHostBuilder(builder =>
         {
             builder.UseEnvironment("Testing");
             builder.ConfigureAppConfiguration((_, config) =>

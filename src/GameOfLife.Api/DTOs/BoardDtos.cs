@@ -1,31 +1,61 @@
 using System.ComponentModel.DataAnnotations;
+using GameOfLife.Api.Interfaces;
 
 namespace GameOfLife.Api.DTOs;
 
-public sealed record CreateBoardRequest(
-    [Required] IReadOnlyList<string> Rows);
+public sealed class CreateBoardRequest(IReadOnlyList<string> rows) : ICreateBoardRequest
+{
+    [Required]
+    public IReadOnlyList<string> Rows { get; } = rows;
+}
 
-public sealed record BoardResponse(
-    Guid Id,
-    IReadOnlyList<string> Rows,
-    long Generation,
-    bool IsStable,
-    bool IsEmpty);
+public sealed class BoardResponse(
+    Guid id,
+    IReadOnlyList<string> rows,
+    long generation,
+    bool isStable,
+    bool isEmpty) : IBoardResponse
+{
+    public Guid Id { get; } = id;
+    public IReadOnlyList<string> Rows { get; } = rows;
+    public long Generation { get; } = generation;
+    public bool IsStable { get; } = isStable;
+    public bool IsEmpty { get; } = isEmpty;
+}
 
-public sealed record StatesAwayResponse(
-    Guid Id,
-    IReadOnlyList<string> Rows,
-    long Generation,
-    int RequestedGenerations,
-    bool IsStable,
-    bool IsEmpty);
+public sealed class StatesAwayResponse(
+    Guid id,
+    IReadOnlyList<string> rows,
+    long generation,
+    int requestedGenerations,
+    bool isStable,
+    bool isEmpty) : IStatesAwayResponse
+{
+    public Guid Id { get; } = id;
+    public IReadOnlyList<string> Rows { get; } = rows;
+    public long Generation { get; } = generation;
+    public int RequestedGenerations { get; } = requestedGenerations;
+    public bool IsStable { get; } = isStable;
+    public bool IsEmpty { get; } = isEmpty;
+}
 
-public sealed record FinalStateResponse(
-    Guid Id,
-    IReadOnlyList<string> Rows,
-    long Generation,
-    int Attempts,
-    bool IsStable,
-    bool IsEmpty);
+public sealed class FinalStateResponse(
+    Guid id,
+    IReadOnlyList<string> rows,
+    long generation,
+    int attempts,
+    bool isStable,
+    bool isEmpty) : IFinalStateResponse
+{
+    public Guid Id { get; } = id;
+    public IReadOnlyList<string> Rows { get; } = rows;
+    public long Generation { get; } = generation;
+    public int Attempts { get; } = attempts;
+    public bool IsStable { get; } = isStable;
+    public bool IsEmpty { get; } = isEmpty;
+}
 
-public sealed record ErrorResponse(string Error);
+public sealed class ErrorResponse(string error) : IErrorResponse
+{
+    public string Error { get; } = error;
+}

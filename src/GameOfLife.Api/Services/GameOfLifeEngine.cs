@@ -1,6 +1,8 @@
+using GameOfLife.Api.Interfaces;
+
 namespace GameOfLife.Api.Services;
 
 public sealed class GameOfLifeEngine : IGameOfLifeEngine
 {
-    public BoardState Next(BoardState state) => state.Next();
+    public IBoardState Next(IBoardState state) => state.Next();
 }

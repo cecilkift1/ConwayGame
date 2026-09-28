@@ -1,6 +1,8 @@
+using GameOfLife.Api.Interfaces;
+
 namespace GameOfLife.Api.Services;
 
-public sealed class BoardState
+public sealed class BoardState : IBoardState
 {
     private readonly bool[,] _cells;
 
@@ -16,7 +18,7 @@ public sealed class BoardState
 
     public bool this[int row, int column] => _cells[row, column];
 
-    public static BoardState Parse(IReadOnlyList<string> rows)
+    public static IBoardState Parse(IReadOnlyList<string> rows)
     {
         ArgumentNullException.ThrowIfNull(rows);
         if (rows.Count == 0)
@@ -27,18 +29,18 @@ public sealed class BoardState
             throw new ArgumentException("Board rows must not be empty.");
 
         var cells = new bool[rows.Count, columns];
-        for (var r = 0; r < rows.Count; r++)
+        for (var rowIndex = 0; rowIndex < rows.Count; rowIndex++)
         {
-            if (rows[r] is null || rows[r].Length != columns)
+            if (rows[rowIndex] is null || rows[rowIndex].Length != columns)
                 throw new ArgumentException("All board rows must have the same length.");
 
-            for (var c = 0; c < columns; c++)
+            for (var columnIndex = 0; columnIndex < columns; columnIndex++)
             {
-                cells[r, c] = rows[r][c] switch
+                cells[rowIndex, columnIndex] = rows[rowIndex][columnIndex] switch
                 {
                     '#' or '1' or 'X' or 'x' or 'O' or 'o' => true,
                     '.' or '0' or '_' or ' ' => false,
-                    _ => throw new ArgumentException($"Invalid cell '{rows[r][c]}' at row {r}, column {c}. Use '#' for alive and '.' for dead.")
+                    _ => throw new ArgumentException($"Invalid cell '{rows[rowIndex][columnIndex]}' at row {rowIndex}, column {columnIndex}. Use '#' for alive and '.' for dead.")
                 };
             }
         }
@@ -46,29 +48,29 @@ public sealed class BoardState
         return new BoardState(cells);
     }
 
-    public BoardState Next()
+    public IBoardState Next()
     {
-        var next = new bool[Rows, Columns];
-        for (var r = 0; r < Rows; r++)
+        var nextCells = new bool[Rows, Columns];
+        for (var rowIndex = 0; rowIndex < Rows; rowIndex++)
         {
-            for (var c = 0; c < Columns; c++)
+            for (var columnIndex = 0; columnIndex < Columns; columnIndex++)
             {
-                var neighbors = CountNeighbors(r, c);
-                next[r, c] = this[r, c]
-                    ? neighbors is 2 or 3
-                    : neighbors == 3;
+                var livingNeighborCount = CountNeighbors(rowIndex, columnIndex);
+                nextCells[rowIndex, columnIndex] = this[rowIndex, columnIndex]
+                    ? livingNeighborCount is 2 or 3
+                    : livingNeighborCount == 3;
             }
         }
 
-        return new BoardState(next);
+        return new BoardState(nextCells);
     }
 
-    public bool IsStableWith(BoardState other)
+    public bool IsStableWith(IBoardState other)
     {
         if (Rows != other.Rows || Columns != other.Columns) return false;
-        for (var r = 0; r < Rows; r++)
-            for (var c = 0; c < Columns; c++)
-                if (_cells[r, c] != other._cells[r, c]) return false;
+        for (var rowIndex = 0; rowIndex < Rows; rowIndex++)
+            for (var columnIndex = 0; columnIndex < Columns; columnIndex++)
+                if (this[rowIndex, columnIndex] != other[rowIndex, columnIndex]) return false;
         return true;
     }
 
@@ -76,9 +78,9 @@ public sealed class BoardState
     {
         get
         {
-            for (var r = 0; r < Rows; r++)
-                for (var c = 0; c < Columns; c++)
-                    if (_cells[r, c]) return false;
+            for (var rowIndex = 0; rowIndex < Rows; rowIndex++)
+                for (var columnIndex = 0; columnIndex < Columns; columnIndex++)
+                    if (_cells[rowIndex, columnIndex]) return false;
             return true;
         }
     }
@@ -86,29 +88,31 @@ public sealed class BoardState
     public IReadOnlyList<string> ToRows()
     {
         var rows = new string[Rows];
-        for (var r = 0; r < Rows; r++)
+        for (var rowIndex = 0; rowIndex < Rows; rowIndex++)
         {
-            var chars = new char[Columns];
-            for (var c = 0; c < Columns; c++) chars[c] = _cells[r, c] ? '#' : '.';
-            rows[r] = new string(chars);
+            var rowCharacters = new char[Columns];
+            for (var columnIndex = 0; columnIndex < Columns; columnIndex++)
+                rowCharacters[columnIndex] = _cells[rowIndex, columnIndex] ? '#' : '.';
+            rows[rowIndex] = new string(rowCharacters);
         }
         return rows;
     }
 
     private int CountNeighbors(int row, int column)
     {
-        var count = 0;
-        for (var dr = -1; dr <= 1; dr++)
+        var livingNeighborCount = 0;
+        for (var rowOffset = -1; rowOffset <= 1; rowOffset++)
         {
-            for (var dc = -1; dc <= 1; dc++)
+            for (var columnOffset = -1; columnOffset <= 1; columnOffset++)
             {
-                if (dr == 0 && dc == 0) continue;
-                var r = row + dr;
-                var c = column + dc;
-                if (r >= 0 && r < Rows && c >= 0 && c < Columns && _cells[r, c]) count++;
+                if (rowOffset == 0 && columnOffset == 0) continue;
+                var neighborRow = row + rowOffset;
+                var neighborColumn = column + columnOffset;
+                if (neighborRow >= 0 && neighborRow < Rows && neighborColumn >= 0 && neighborColumn < Columns && _cells[neighborRow, neighborColumn])
+                    livingNeighborCount++;
             }
         }
-        return count;
+        return livingNeighborCount;
     }
 
     public string Fingerprint() => string.Join('\n', ToRows());
