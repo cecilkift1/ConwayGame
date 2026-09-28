@@ -74,7 +74,14 @@ public class Program
 
             app.UseCors();
             app.UseDefaultFiles();
-            app.UseStaticFiles();
+            app.UseStaticFiles(new StaticFileOptions
+            {
+                OnPrepareResponse = ctx =>
+                {
+                    if (ctx.File.Name.EndsWith(".html", StringComparison.OrdinalIgnoreCase))
+                        ctx.Context.Response.Headers.CacheControl = "no-cache, no-store";
+                }
+            });
             app.MapControllers();
 
             await app.RunAsync();

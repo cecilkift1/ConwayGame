@@ -62,6 +62,22 @@ public sealed class ApiTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task States_reports_empty_and_stable_boards()
+    {
+        var dying = await _client.PostAsJsonAsync("/api/boards", new CreateBoardRequest(["#"]));
+        var dyingId = (await dying.Content.ReadFromJsonAsync<IdResponse>())!.Id;
+        var empty = await _client.GetFromJsonAsync<StatesAwayResponse>($"/api/boards/{dyingId}/states/1");
+        Assert.True(empty!.IsEmpty);
+        Assert.True(empty.IsStable);
+
+        var block = await _client.PostAsJsonAsync("/api/boards", new CreateBoardRequest(["##", "##"]));
+        var blockId = (await block.Content.ReadFromJsonAsync<IdResponse>())!.Id;
+        var stable = await _client.GetFromJsonAsync<StatesAwayResponse>($"/api/boards/{blockId}/states/0");
+        Assert.False(stable!.IsEmpty);
+        Assert.True(stable.IsStable);
+    }
+
+    [Fact]
     public async Task Final_state_returns_stable_state()
     {
         var create = await _client.PostAsJsonAsync("/api/boards", new CreateBoardRequest(["#"]));
