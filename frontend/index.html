@@ -98,6 +98,12 @@
     button.primary { background: var(--accent); color: #04121c; border-color: var(--accent); font-weight: 600; }
     button.primary:hover:not(:disabled) { background: #7dd3fc; }
     button.play { background: var(--accent-2); color: #04210f; border-color: var(--accent-2); font-weight: 600; }
+    button.play:disabled {
+      background: var(--panel-2);
+      color: var(--text);
+      border-color: var(--grid-line);
+      font-weight: 500;
+    }
     .btn-row { display: flex; gap: 8px; flex-wrap: wrap; }
     .btn-row button { flex: 1; }
     .board {
@@ -304,6 +310,7 @@
     let boardId = null;         // id returned from upload
     let generation = 0;         // current generation shown
     let playTimer = null;
+    let playLocked = false;
     let painting = false, paintValue = true;
 
     function clampDim(v) { v = parseInt(v, 10); if (isNaN(v)) v = 5; return Math.max(5, Math.min(100, v)); }
@@ -398,11 +405,57 @@
     }
     function setGen(n) { generation = n; $("gen").textContent = n; }
 
+    function gridIsEmpty() {
+      return grid.length === 0 || grid.every(row => row.every(cell => !cell));
+    }
+
+    function flag(data, name) {
+      if (!data) return false;
+      return !!(data[name] || data[name.charAt(0).toUpperCase() + name.slice(1)]);
+    }
+
+    function isTerminal(data) {
+      return gridIsEmpty() || flag(data, "isEmpty") || flag(data, "isStable");
+    }
+
+    function lockAdvance() {
+      playLocked = true;
+      $("step").disabled = true;
+      $("play").disabled = true;
+      $("final").disabled = true;
+      if (playTimer) stopPlay();
+    }
+
+    function unlockAdvance() {
+      playLocked = false;
+      const allow = !!boardId && !gridIsEmpty();
+      $("step").disabled = !allow;
+      $("play").disabled = !allow;
+      $("final").disabled = !allow;
+      $("reset").disabled = !boardId;
+    }
+
+    function applyTerminalState(data) {
+      const empty = gridIsEmpty() || flag(data, "isEmpty");
+      const stable = flag(data, "isStable");
+      setBadges(stable, empty);
+      if (isTerminal(data)) lockAdvance();
+      else unlockAdvance();
+    }
+
     function simControls(enabled) {
-      $("step").disabled = !enabled;
-      $("play").disabled = !enabled;
-      $("reset").disabled = !enabled;
-      $("final").disabled = !enabled;
+      if (!enabled) {
+        playLocked = false;
+        $("step").disabled = true;
+        $("play").disabled = true;
+        $("reset").disabled = true;
+        $("final").disabled = true;
+        if (playTimer) stopPlay();
+        return;
+      }
+      $("reset").disabled = !boardId;
+      if (gridIsEmpty()) lockAdvance();
+      else unlockAdvance();
     }
 
     // Editing invalidates the uploaded board
@@ -523,22 +576,30 @@
       const data = await api(`/api/boards/${boardId}/states/${n}`);
       rowsToGrid(data.rows);
       setGen(n);
-      setBadges(data.isStable, data.isEmpty);
+      const wasPlaying = !!playTimer;
+      applyTerminalState(data);
+      if (isTerminal(data) && wasPlaying) {
+        setStatus("Board reached an empty or stable state. Step / Play / Run to final are disabled until you upload a new board or reset.");
+      }
       return data;
     }
 
     $("step").onclick = async () => {
-      if (!boardId) return;
-      try { await showGeneration(generation + 1); setStatus(`Generation ${generation}.`); }
+      if (!boardId || $("step").disabled) return;
+      try {
+        const data = await showGeneration(generation + 1);
+        if (!isTerminal(data)) setStatus(`Generation ${generation}.`);
+      }
       catch (e) { setStatus("Step failed: " + e.message, "err"); }
     };
 
     function stopPlay() {
       clearInterval(playTimer); playTimer = null;
-      $("play").textContent = "Play"; $("play").classList.add("play");
+      $("play").textContent = "Play";
+      $("play").classList.add("play");
     }
     $("play").onclick = () => {
-      if (!boardId) return;
+      if (!boardId || $("play").disabled) return;
       if (playTimer) { stopPlay(); return; }
       $("play").textContent = "Pause"; $("play").classList.remove("play");
       playTimer = setInterval(async () => {
@@ -550,13 +611,18 @@
     $("reset").onclick = async () => {
       if (!boardId) return;
       if (playTimer) stopPlay();
-      try { await showGeneration(0); setStatus("Reset to generation 0."); }
+      playLocked = false;
+      try {
+        await showGeneration(0);
+        if (!$("play").disabled) setStatus("Reset to generation 0.");
+      }
       catch (e) { setStatus("Reset failed: " + e.message, "err"); }
     };
 
     $("final").onclick = async () => {
-      if (!boardId) return;
+      if (!boardId || $("final").disabled) return;
       if (playTimer) stopPlay();
+      lockAdvance();
       try {
         setStatus("Running to final state…");
         let maxAttempts = parseInt($("maxAttempts").value, 10);
@@ -566,10 +632,12 @@
         const data = await api(`/api/boards/${boardId}/final?maxAttempts=${maxAttempts}`);
         rowsToGrid(data.rows);
         setGen(data.attempts);
-        setBadges(data.isStable, data.isEmpty);
-        const kind = data.isEmpty ? "died out (empty)" : "reached a stable state";
-        setStatus(`Final state ${kind} after ${data.attempts} generation(s).`, "ok");
+        applyTerminalState(data);
+        lockAdvance();
+        const kind = flag(data, "isEmpty") || gridIsEmpty() ? "died out (empty)" : "reached a stable state";
+        setStatus(`Final state ${kind} after ${data.attempts} generation(s). Step / Play / Run to final are disabled until you upload a new board or reset.`, "ok");
       } catch (e) {
+        unlockAdvance();
         setStatus(e.message, "err");  // e.g. cycle detected / attempt limit
       }
     };

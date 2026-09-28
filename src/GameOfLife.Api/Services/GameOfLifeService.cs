@@ -53,8 +53,7 @@ public sealed class GameOfLifeService(
             state = engine.Next(state);
         }
 
-        var previous = generations == 0 ? state : null;
-        var stable = previous?.IsStableWith(state) ?? false;
+        var stable = state.IsStableWith(engine.Next(state));
         return new StatesAwayResponse(id, state.ToRows(), generations, generations, stable, state.IsEmpty);
     }
 
