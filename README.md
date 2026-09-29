@@ -2,24 +2,6 @@
 
 ASP.NET Core Web API implementing Conway's Game of Life using C# and **.NET 9**. Board definitions are persisted in SQLite so a process restart or crash does not lose uploaded boards.
 
-## Architecture
-
-```text
-HTTP
-  |
-  v
-BoardsController
-  |
-  v
-GameOfLifeService ----> GameOfLifeEngine
-  |                         |
-  v                         v
-BoardRepository         BoardState
-  |
-  v
-EF Core / SQLite
-```
-
 ### Design decisions
 
 - **.NET 9 / ASP.NET Core**: current supported framework above the requested .NET 7 baseline.
@@ -29,9 +11,6 @@ EF Core / SQLite
 - **Bounded final-state search**: `/final?maxAttempts=N` stops after N generations. Empty and stable states are conclusions. Cycles are detected and reported as having no final stable state.
 - **No in-memory board registry**: only the persisted initial state is required to reconstruct any generation after a restart.
 - **Cancellation**: long-running generation requests observe ASP.NET's request cancellation token.
-
-
-# Conway’s Game of Life — API Design
 
 ## Overview
 
@@ -147,17 +126,6 @@ Board states can be persisted and retrieved through the API, allowing clients to
 * Interact with the implementation through the accompanying web UI.
 
 A `Fingerprint()` provides a deterministic textual representation of a board and can support state comparison, caching, and future cycle detection.
-
-## Design Principles
-
-* **Deterministic:** identical input states always produce identical next states.
-* **Separation of concerns:** API, persistence, and Game of Life domain logic are separated.
-* **Non-mutating generation:** each generation is represented as a new board state.
-* **Validated input:** malformed or non-rectangular boards are rejected.
-* **Testable domain logic:** the rules can be tested independently of HTTP and persistence.
-* **Extensible:** the board representation and domain logic can evolve independently of the API contract.
-
-The implementation intentionally keeps the core Game of Life algorithm simple and isolated, making the behavior easy to reason about, test, and extend.
 
 ## API
 
