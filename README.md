@@ -30,6 +30,135 @@ EF Core / SQLite
 - **No in-memory board registry**: only the persisted initial state is required to reconstruct any generation after a restart.
 - **Cancellation**: long-running generation requests observe ASP.NET's request cancellation token.
 
+
+# Conway’s Game of Life — API Design
+
+## Overview
+
+The system exposes a REST API for Conway’s Game of Life. A board consists of a rectangular grid of cells, where each cell is either **alive** or **dead**. Each generation is deterministically calculated from the previous generation using Conway’s four rules:
+
+1. A live cell with fewer than 2 neighbors dies.
+2. A live cell with 2 or 3 neighbors survives.
+3. A live cell with more than 3 neighbors dies.
+4. A dead cell with exactly 3 neighbors becomes alive.
+
+The implementation is designed around an immutable-style `BoardState` abstraction: calculating the next generation creates a new board rather than modifying the current state.
+
+## Architecture
+
+```text
+                    ┌───────────────────┐
+                    │      Web UI        │
+                    └─────────┬─────────┘
+                              │ HTTP
+                              ▼
+                    ┌───────────────────┐
+                    │    REST API       │
+                    │  ASP.NET Core     │
+                    └─────────┬─────────┘
+                              │
+                    ┌─────────▼─────────┐
+                    │   Board Service    │
+                    └─────────┬─────────┘
+                              │
+                    ┌─────────▼─────────┐
+                    │    BoardState      │
+                    │                   │
+                    │  bool[,] cells    │
+                    │  Parse()          │
+                    │  Next()           │
+                    │  IsEmpty          │
+                    │  IsStableWith()   │
+                    │  Fingerprint()    │
+                    └─────────┬─────────┘
+                              │
+                              ▼
+                    ┌───────────────────┐
+                    │     SQLite        │
+                    │ Board persistence  │
+                    └───────────────────┘
+```
+
+## Domain Model
+
+`BoardState` owns the representation and rules for a single generation.
+
+```text
+BoardState
+ ├── Rows
+ ├── Columns
+ ├── Cell[row,column]
+ ├── Next()
+ ├── IsEmpty
+ ├── IsStableWith()
+ ├── ToRows()
+ └── Fingerprint()
+```
+
+The board is represented internally as a `bool[,]`:
+
+* `true` = alive
+* `false` = dead
+
+Input is parsed from textual representations such as `#` and `.`, with validation ensuring the board is non-empty, rectangular, and contains valid cell values.
+
+## Generation Algorithm
+
+For every cell, the implementation examines the eight surrounding positions. Boundary checks prevent access outside the board.
+
+```text
+Current Generation
+        │
+        ▼
+For each cell
+        │
+        ▼
+Count up to 8 neighbors
+        │
+        ▼
+Apply Conway's rules
+        │
+        ▼
+Write to NEW board
+        │
+        ▼
+Next Generation
+```
+
+The current board is never modified while calculating the next generation. This prevents newly calculated cells from affecting calculations for other cells in the same generation.
+
+## Complexity
+
+For an `R × C` board:
+
+* **Time:** `O(R × C)` per generation
+* **Additional memory:** `O(R × C)` for the next generation
+* Each cell examines at most eight neighbors, making the constant factor small.
+
+The implementation favors clarity and correctness over premature optimization. For extremely large sparse boards, a sparse representation or neighbor-counting approach could reduce memory and processing requirements.
+
+## Persistence and API
+
+Board states can be persisted and retrieved through the API, allowing clients to:
+
+* Upload an initial board and receive an identifier.
+* Retrieve the next generation.
+* Retrieve a board several generations into the future.
+* Interact with the implementation through the accompanying web UI.
+
+A `Fingerprint()` provides a deterministic textual representation of a board and can support state comparison, caching, and future cycle detection.
+
+## Design Principles
+
+* **Deterministic:** identical input states always produce identical next states.
+* **Separation of concerns:** API, persistence, and Game of Life domain logic are separated.
+* **Non-mutating generation:** each generation is represented as a new board state.
+* **Validated input:** malformed or non-rectangular boards are rejected.
+* **Testable domain logic:** the rules can be tested independently of HTTP and persistence.
+* **Extensible:** the board representation and domain logic can evolve independently of the API contract.
+
+The implementation intentionally keeps the core Game of Life algorithm simple and isolated, making the behavior easy to reason about, test, and extend.
+
 ## API
 
 ### 1. Upload a board
